@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Npgsql;
 using System.Threading.Tasks;
 
 namespace Bookstore.Web.Startup
@@ -50,13 +51,14 @@ namespace Bookstore.Web.Startup
             {
                 var context = scope.ServiceProvider.GetService<ApplicationDbContext>()!;
                 await context.Database.EnsureCreatedAsync();
-                
-                // Check if RowVersion columns exist, if not recreate database
+
+                // Verify the schema is accessible; recreate if a PostgreSQL error indicates
+                // the schema is missing or incompatible (e.g. after a destructive migration).
                 try
                 {
                     await context.OrderItem.FirstOrDefaultAsync();
                 }
-                catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Message.Contains("RowVersion"))
+                catch (PostgresException)
                 {
                     await context.Database.EnsureDeletedAsync();
                     await context.Database.EnsureCreatedAsync();
